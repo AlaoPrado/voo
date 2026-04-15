@@ -696,7 +696,7 @@ time benchmarks use Tcl's `time` command with 1,000 iterations.
 **Tcl 8.6.13**
 
 | Framework | Explicit (μs) | Default (μs) | Relative to VOO |
-|-----------|--------------|--------------|-----------------||
+|-----------|--------------|--------------|------------------|
 | VOO       | 0.414        | 0.397        | 1.00× (baseline) |
 | VOO C++   | 0.565        | 0.334        | 1.36× slower / 1.19× faster |
 | TclOO     | 3.536        | 2.972        | **8.5× / 7.5× slower** |
@@ -705,7 +705,7 @@ time benchmarks use Tcl's `time` command with 1,000 iterations.
 **Tcl 9.0**
 
 | Framework | Explicit (μs) | Default (μs) | Relative to VOO |
-|-----------|--------------|--------------|-----------------||
+|-----------|--------------|--------------|------------------|
 | VOO       | 0.525        | 0.550        | 1.00× (baseline) |
 | VOO C++   | 0.576        | 0.458        | 1.10× slower / 1.20× faster |
 | TclOO     | 9.246        | 3.829        | **17.6× / 7.0× slower** |
