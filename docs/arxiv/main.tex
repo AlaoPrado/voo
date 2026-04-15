@@ -1,0 +1,114 @@
+\documentclass[11pt,a4paper]{article}
+
+% ── Packages ────────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{titlesec}
+\usepackage{abstract}
+\usepackage{parskip}
+\usepackage{amsmath}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{textcomp}
+\usepackage{bookmark}
+
+% ── Listing (code) style ────────────────────────────────────────────────────
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{codeframe}{RGB}{200,200,200}
+\definecolor{codecomment}{RGB}{100,100,100}
+\definecolor{codekw}{RGB}{0,100,180}
+\definecolor{codestring}{RGB}{160,32,32}
+\definecolor{gray}{RGB}{160,160,160}
+
+\lstdefinelanguage{Tcl}{
+  morekeywords={proc,set,return,if,else,elseif,foreach,for,while,
+                namespace,eval,variable,upvar,uplevel,lindex,lset,
+                lappend,lrange,llength,list,dict,string,expr,incr,
+                catch,try,throw,trap,finally,error,puts,load,source,
+                package,require,voo,class,method,constructor,
+                importMethods,public,private,oo,itcl},
+  sensitive=true,
+  morecomment=[l]{\#},
+  morestring=[b]",
+  morestring=[b]{},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  framesep=4pt,
+  rulecolor=\color{codeframe},
+  commentstyle=\color{codecomment}\itshape,
+  keywordstyle=\color{codekw}\bfseries,
+  stringstyle=\color{codestring},
+  breaklines=true,
+  breakatwhitespace=false,
+  showstringspaces=false,
+  tabsize=4,
+  captionpos=b,
+  numbers=none,
+  xleftmargin=6pt,
+  xrightmargin=6pt,
+}
+
+% ── Hyperref setup ──────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=green!50!black,
+  urlcolor=blue!70!black,
+  pdftitle={Vanilla Object Orientation (VOO): A Value-Semantics Approach to Classes in Tcl},
+  pdfauthor={Alan Araujo},
+}
+
+% ── Title data ──────────────────────────────────────────────────────────────
+\title{\textbf{Vanilla Object Orientation (VOO)}: \\
+       A Value-Semantics Approach to Classes in Tcl}
+\author{Alan Araujo \\
+        \small \href{mailto:aarajo@cadence.com}{aarajo@cadence.com}\ |\ %
+               \href{mailto:aaraujo.articles@gmail.com}{aaraujo.articles@gmail.com} \\
+        \small Cadence Design Systems, Inc.}
+\date{}
+
+% ── Column type for tables ──────────────────────────────────────────────────
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% ════════════════════════════════════════════════════════════════════════════
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\input{sections/abstract}
+\input{sections/sec1_introduction}
+\input{sections/sec2_background}
+\input{sections/sec3_design}
+\input{sections/sec4_framework}
+\input{sections/sec5_implementation}
+\input{sections/sec6_evaluation}
+\input{sections/sec7_discussion}
+\input{sections/sec8_related}
+\input{sections/sec9_conclusions}
+\input{sections/acknowledgments}
+\input{sections/references}
+
+\appendix
+\input{sections/appA_quickref}
+\input{sections/appB_benchmark}
+\input{sections/appC_syntax}
+\input{sections/appD_cpp}
+\input{sections/appE_voo}
+
+\end{document}

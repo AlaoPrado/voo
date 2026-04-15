@@ -1,0 +1,47 @@
+\section{Discussion}
+
+\subsection{Application Domains}
+
+VOO is recommended for high-performance data backends managing hundreds of thousands to
+millions of structured objects, long-running processes where manual destructor management
+introduces maintenance burden, C++ migration candidates, and new development projects
+prioritizing performance and clarity. TclOO or Itcl may be preferable for existing stable
+codebases where migration costs outweigh benefits, teams preferring traditional
+\texttt{\$obj method} syntax, or applications requiring multiple inheritance or TclOO's
+mixin system.
+
+\subsection{Comparison Summary}
+
+\begin{table}[H]
+\centering
+\caption{Feature and performance comparison across OO frameworks}
+\begin{tabular}{L{3.2cm}L{2.5cm}L{2.5cm}L{2.2cm}L{2.2cm}}
+\toprule
+\textbf{Aspect} & \textbf{VOO (Tcl)} & \textbf{VOO (C++)} & \textbf{TclOO} & \textbf{Itcl} \\
+\midrule
+Object Creation   & \textbf{7--18$\times$ faster} & \textbf{6--16$\times$ faster} & Baseline & Slowest \\
+Memory/Object     & \textbf{4--6$\times$ lighter} & \textbf{7--10$\times$ lighter} & Baseline & Heaviest \\
+Getters           & \textbf{Fastest (Tcl)} & \textbf{Fastest overall} & Good & Slow \\
+Setters           & Good & \textbf{Fastest overall} & Faster than VOO Tcl & Slow \\
+Destructor        & \textbf{None (auto)} & \textbf{None (auto)} & Required & Required \\
+Inheritance       & Single & Single & Multiple & Multiple \\
+C++ Migration     & \textbf{Seamless} & \textbf{Already C++} & Redesign needed & Redesign needed \\
+Cross-Version     & \textbf{Excellent} & \textbf{Best} & Moderate & Poor \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Philosophical Alignment}
+
+VOO embodies the ``Tao of Tcl''~\cite{ousterhout1994}: objects are lists, classes are
+namespaces, accessor patterns are explicit and predictable, object behavior matches strings
+and lists, and all objects maintain human-readable string representations. While TclOO
+improved upon Itcl's inconsistencies, it retains reference semantics and procedure handle
+mechanisms that diverge from Tcl's native type behavior.
+
+\subsection{Limitations and Future Work}
+
+Current limitations include single inheritance only (by design), no mixin support, and
+class declaration overhead approximately 4--6$\times$ slower than TclOO (an acceptable
+one-time cost). Future directions include syntax exploration, automated TclOO $\to$ VOO
+migration tools, pattern libraries, and community feedback integration.

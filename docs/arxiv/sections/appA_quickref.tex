@@ -1,0 +1,83 @@
+\section{Quick Reference}
+\label{app:quickref}
+
+This appendix provides concise reference documentation for VOO's primary constructs and
+usage patterns.
+
+\subsection*{Class Declaration}
+
+\begin{lstlisting}[language=Tcl, caption={VOO class declaration template}]
+voo::class ClassName ?-virtual? ?-extends ParentClass? {
+    public {
+        type_t fieldName defaultValue
+        type_t -static staticFieldName defaultValue
+
+        method methodName {args} { body }
+        method methodName {args} -static { body }
+        method methodName {args} -upvar { body }
+        method methodName {args} -update {fields} { body }
+        method methodName {args} -override { body }
+        method methodName -virtual {args} { body }
+    }
+
+    private {
+        type_t fieldName defaultValue
+        method methodName {args} { body }
+    }
+
+    constructor {args} { return [list ...] }
+
+    importMethods {parentMethod1 parentMethod2}
+}
+\end{lstlisting}
+
+\subsection*{Field Types}
+
+\begin{table}[H]
+\centering
+\caption{VOO field type annotations}
+\begin{tabular}{lll}
+\toprule
+\textbf{Type} & \textbf{Description} & \textbf{Example} \\
+\midrule
+\texttt{double\_t} & Floating-point & \texttt{double\_t x 0.0} \\
+\texttt{int\_t}    & Integer        & \texttt{int\_t count 0} \\
+\texttt{string\_t} & String         & \texttt{string\_t name ""} \\
+\texttt{bool\_t}   & Boolean        & \texttt{bool\_t active 1} \\
+\texttt{list\_t}   & List           & \texttt{list\_t items [list]} \\
+\texttt{dict\_t}   & Dictionary     & \texttt{dict\_t data [dict create]} \\
+\texttt{obj\_t}    & Any object     & \texttt{obj\_t nested \{\}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Accessors}
+
+\begin{lstlisting}[language=Tcl, caption={Accessor patterns}]
+# Instance field accessors
+set val [Class::get.field $obj]
+Class::set.field obj value
+Class::update.field obj temp { modify $temp }
+
+# Static field accessors
+set val [Class::class.get.staticField]
+Class::class.set.staticField value
+\end{lstlisting}
+
+\subsection*{Constructors}
+
+\begin{lstlisting}[language=Tcl, caption={Three constructor variants}]
+set obj [Class::new arg1 arg2 ...]       ;# Positional
+set obj [Class::new()]                    ;# Default values
+set obj [Class::new.args -field1 val ...] ;# Named arguments
+\end{lstlisting}
+
+\subsection*{Virtual Dispatch}
+
+\begin{lstlisting}[language=Tcl, caption={Virtual dispatch patterns}]
+# Call through abstract base --- dispatches to concrete class at runtime
+set result [BaseClass::virtualMethod $obj]
+
+# Direct parent-body call from within an override
+BaseClass::base.virtualMethod $this
+\end{lstlisting}

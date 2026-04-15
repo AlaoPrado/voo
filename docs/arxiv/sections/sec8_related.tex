@@ -1,0 +1,38 @@
+\section{Related Work}
+
+\begin{table}[H]
+\centering
+\caption{Object models in scripting languages}
+\begin{tabular}{llll}
+\toprule
+\textbf{Language}   & \textbf{Object Model}            & \textbf{Semantics}                          & \textbf{Memory Mgmt} \\
+\midrule
+Python              & \texttt{\_\_dict\_\_}            & Reference                                   & GC \\
+Ruby                & Everything is object             & Reference                                   & GC \\
+JavaScript          & Prototype-based                  & Reference                                   & GC \\
+Lua                 & Tables + metatables              & Reference                                   & GC \\
+\textbf{VOO}        & Lists + namespaces               & \textbf{Value} / Ref.\ by variable name     & \textbf{COW + Refcount} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Tcl OO frameworks comparison}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Framework}         & \textbf{Basis}      & \textbf{Semantics}                      & \textbf{Status} \\
+\midrule
+Itcl~\cite{dejong,tclwiki-itcl}  & Extension     & Reference                               & Legacy \\
+TclOO~\cite{fellows2006,tcloo}   & Core (8.6+)   & Reference                               & Standard \\
+Snit                              & Pure Tcl      & Reference                               & Widgets \\
+XOTcl~\cite{neumann2000}          & Extension     & Reference                               & Research \\
+\textbf{VOO}                      & Native types  & \textbf{Value} / Ref.\ by variable name & \textbf{This work} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Value semantics are gaining recognition in modern systems languages---C++11 move
+semantics, Rust's ownership model, and Swift's value types. VOO demonstrates that value
+semantics and object orientation are complementary rather than mutually exclusive,
+extending these benefits to Tcl scripting.

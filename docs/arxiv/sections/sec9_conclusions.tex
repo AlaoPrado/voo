@@ -1,0 +1,41 @@
+\section{Conclusions}
+
+I have presented Vanilla Object Orientation (VOO), a high-performance OO framework for
+Tcl that constructs classes from native data structures rather than introducing additional
+abstraction layers. Objects are plain lists with automatic memory management through
+Tcl's existing mechanisms, achieving 7--18$\times$ faster object creation and
+4--6$\times$ superior memory efficiency versus TclOO across Tcl~8.6.13 and~9.0.
+VOO~C++ extends these gains further with the fastest field access and smallest memory
+footprint of all evaluated frameworks. Cross-version analysis shows that VOO's
+compositional design scales better than framework-based approaches---TclOO's memory
+footprint increased 53.7\% in Tcl~9.0 while VOO increased only 14.8\% and VOO~C++ just
+6.1\%.
+
+The evolution from Itcl (1990s) $\to$ TclOO (2013) $\to$ VOO represents the Tcl
+community's progressive understanding that OO support should harmonize with the
+language's foundational philosophy. VOO provides organizational patterns using Tcl's
+established primitives, with an incremental migration path (lists $\to$ VOO $\to$ C++)
+that preserves API compatibility throughout. Our results suggest that philosophical
+alignment with core language principles provides not only conceptual elegance but also
+practical longevity: simplicity enables performance, and frameworks built from native
+primitives scale better across language versions than those introducing new
+infrastructure.
+
+\paragraph{Availability.}
+VOO is available as open-source software. License: MIT\@.
+
+Initial version of the code and supplementary material is provided in the appendices:
+\begin{sloppypar}
+\begin{itemize}
+  \item \textbf{Appendix~\ref{app:quickref}} --- Quick Reference (class declaration
+        syntax, field types, acessors, constructors)
+  \item \textbf{Appendix~\ref{app:benchmark}} --- Benchmark Methodology (timing
+        procedure, full test class implementations, memory measurement)
+  \item \textbf{Appendix~\ref{app:syntax}} --- VOO Syntax Sugar vs.\ Raw Vanilla Tcl
+        (side-by-side code generation walkthrough)
+  \item \textbf{Appendix~\ref{app:cpp}} --- C++/Tcl Glue Code Template Framework
+        (complete source for \texttt{tcl/type.h}, \texttt{tcl/obj\_cast.h},
+        \texttt{tcl/cpp\_api.h})
+  \item \textbf{Appendix~\ref{app:voopkg}} --- VOO Tcl Package (complete source of \texttt{voo.tcl})
+\end{itemize}
+\end{sloppypar}

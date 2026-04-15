@@ -1,0 +1,188 @@
+\section{Evaluation}
+
+\subsection{Experimental Setup}
+
+All benchmarks ran on a Dual-Core Intel Xeon Gold 6240 CPU under Tcl~8.6.13 (stable)
+and Tcl~9.0 (latest development). The evaluated frameworks are VOO (proposed), VOO~C++
+(the benchmark \texttt{Point} class ported to a compiled C++ shared library via VOO's
+template framework), TclOO (built-in), and Itcl~4.2. Time benchmarks use Tcl's
+\texttt{time} command with 1,000 iterations (first execution discarded). Memory
+benchmarks instantiate 100,000 objects in isolated \texttt{tclsh} processes and record resident set size
+(RES) via \texttt{htop}. The test class is \texttt{Point} with 5 fields (two doubles, one
+string, one integer, one boolean).
+
+Virtual class overhead was also measured using an equivalent \texttt{VooVirtualPointImpl}
+class (a concrete subclass of a \texttt{-virtual} base). No significant impact on object
+creation time or memory footprint was found compared to non-virtual VOO classes. Over
+100,000 objects, creation time increased by only $\sim$7\% on Tcl~8.6.13 (157~ms
+vs.\ 147~ms) and $\sim$4\% on Tcl~9.0 (177~ms vs.\ 170~ms). Memory overhead was
+negligible: $+$0.11~MB on Tcl~8.6.13 and $+$0.06~MB on Tcl~9.0. This near-zero memory
+delta is explained by Tcl's reference-counting model: the namespace tag string stored at
+index~0 of each virtual object is a single interned \texttt{Tcl\_Obj*} shared by all
+instances of the same class; copy-on-write ensures it is never duplicated on object copy.
+Virtual method dispatch carries $\sim$2~\textmu s overhead per call from the index-0 read
+and conditional namespace routing, an upper bound incurred only on cross-class polymorphic
+calls.
+
+\subsection{Object Creation Performance}
+
+\subsubsection*{Tcl 8.6.13}
+
+\begin{table}[H]
+\centering
+\caption{Object creation performance on Tcl~8.6.13}
+\begin{tabular}{llll}
+\toprule
+\textbf{Framework} & \textbf{Explicit (\textmu s)} & \textbf{Default (\textmu s)} & \textbf{Relative to VOO} \\
+\midrule
+VOO       & 0.414   & 0.397   & 1.00$\times$ (baseline) \\
+VOO C++   & 0.565   & 0.334   & 1.36$\times$ slower / 1.19$\times$ faster \\
+TclOO     & 3.536   & 2.972   & \textbf{8.5$\times$ / 7.5$\times$ slower} \\
+Itcl      & 26.222  & 25.734  & \textbf{63$\times$ / 65$\times$ slower} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection*{Tcl 9.0}
+
+\begin{table}[H]
+\centering
+\caption{Object creation performance on Tcl~9.0}
+\begin{tabular}{llll}
+\toprule
+\textbf{Framework} & \textbf{Explicit (\textmu s)} & \textbf{Default (\textmu s)} & \textbf{Relative to VOO} \\
+\midrule
+VOO       & 0.525   & 0.550   & 1.00$\times$ (baseline) \\
+VOO C++   & 0.576   & 0.458   & 1.10$\times$ slower / 1.20$\times$ faster \\
+TclOO     & 9.246   & 3.829   & \textbf{17.6$\times$ / 7.0$\times$ slower} \\
+Itcl      & 27.808  & 27.444  & \textbf{53$\times$ / 50$\times$ slower} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+VOO achieves direct list allocation with minimal overhead. VOO~C++ is comparable for
+explicit creation and faster for defaults. TclOO's explicit constructor overhead increased
+dramatically in Tcl~9.0 ($+$161\%), while Itcl remained consistently slow.
+
+\subsection{Field Access Performance}
+
+\subsubsection*{Tcl 8.6.13}
+
+\begin{table}[H]
+\centering
+\caption{Field access performance on Tcl~8.6.13}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Operation} & \textbf{VOO (\textmu s)} & \textbf{VOO C++ (\textmu s)} & \textbf{TclOO (\textmu s)} & \textbf{Itcl (\textmu s)} \\
+\midrule
+Getter & 0.393 & 0.298 & 0.502 & 1.153 \\
+Setter & 0.799 & 0.306 & 0.563 & 1.169 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection*{Tcl 9.0}
+
+\begin{table}[H]
+\centering
+\caption{Field access performance on Tcl~9.0}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Operation} & \textbf{VOO (\textmu s)} & \textbf{VOO C++ (\textmu s)} & \textbf{TclOO (\textmu s)} & \textbf{Itcl (\textmu s)} \\
+\midrule
+Getter & 0.366 & 0.286 & 0.615 & 1.291 \\
+Setter & 0.823 & 0.365 & 0.613 & 1.102 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+VOO~C++ delivers the fastest getters ($\sim$1.3$\times$ faster than VOO Tcl) and setters
+(2.3--2.6$\times$ faster) across all frameworks. TclOO setters are 1.3--1.4$\times$
+faster than VOO Tcl setters due to lighter variable-lookup overhead, but slower than
+VOO~C++.
+
+\subsection{Memory and Time Efficiency (100,000 Objects)}
+
+\subsubsection*{Tcl 8.6.13}
+
+\begin{table}[H]
+\centering
+\caption{Memory and time for 100,000 objects on Tcl~8.6.13}
+\begin{tabular}{@{}llllll@{}}
+\toprule
+\textbf{Framework} & \textbf{Time} & \textbf{Memory} & \textbf{Bytes/Obj} & \textbf{vs.\ VOO (Time)} & \textbf{vs.\ VOO (Mem)} \\
+\midrule
+VOO       & 147~ms    & 58~MB   & $\sim$580   & 1.00$\times$             & 1.00$\times$ \\
+VOO C++   & 149~ms    & 38~MB   & $\sim$380   & 1.01$\times$ slower      & \textbf{1.53$\times$ lighter} \\
+TclOO     & 466~ms    & 257~MB  & $\sim$2,570 & \textbf{3.2$\times$ slower} & \textbf{4.4$\times$ heavier} \\
+Itcl      & 2,781~ms  & 882~MB  & $\sim$8,820 & \textbf{18.9$\times$ slower} & \textbf{15.2$\times$ heavier} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection*{Tcl 9.0}
+
+\begin{table}[H]
+\centering
+\caption{Memory and time for 100,000 objects on Tcl~9.0}
+\begin{tabular}{@{}llllll@{}}
+\toprule
+\textbf{Framework} & \textbf{Time} & \textbf{Memory} & \textbf{Bytes/Obj} & \textbf{vs.\ VOO (Time)} & \textbf{vs.\ VOO (Mem)} \\
+\midrule
+VOO       & 170~ms    & 66.5~MB   & $\sim$665    & 1.00$\times$              & 1.00$\times$ \\
+VOO C++   & 169~ms    & 40.3~MB   & $\sim$403    & \textbf{1.01$\times$ faster} & \textbf{1.65$\times$ lighter} \\
+TclOO     & 577~ms    & 395~MB    & $\sim$3,950  & \textbf{3.4$\times$ slower}  & \textbf{5.9$\times$ heavier} \\
+Itcl      & 3,014~ms  & 1,118~MB  & $\sim$11,180 & \textbf{17.7$\times$ slower} & \textbf{16.8$\times$ heavier} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In a real-world scenario of creating 100,000 structured objects, VOO and VOO~C++ are
+virtually identical in total wall-clock time ($\sim$147--170~ms), while TclOO takes
+3.2--3.4$\times$ longer and Itcl is 18--19$\times$ slower. The memory picture is even
+more pronounced: VOO~C++ holds the smallest footprint across all configurations
+(6.8$\times$ lighter than TclOO on Tcl~8.6.13, widening to 9.8$\times$ on Tcl~9.0).
+For million-object applications, VOO projects $\sim$665~MB versus TclOO's $\sim$3.95~GB
+on Tcl~9.0.
+
+\subsection{Cross-Version Analysis}
+
+\begin{table}[H]
+\centering
+\caption{Performance change from Tcl~8.6.13 to Tcl~9.0}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Operation} & \textbf{VOO $\Delta$} & \textbf{VOO C++ $\Delta$} & \textbf{TclOO $\Delta$} & \textbf{Itcl $\Delta$} \\
+\midrule
+Creation (Explicit) & $+$26.8\% & $+$1.9\% & \textbf{$+$161.5\%} & $+$6.1\% \\
+Creation (Default)  & $+$38.5\% & $+$37.1\% & $+$28.8\%           & $+$6.6\% \\
+Getter              & $-$6.9\%  & $-$4.0\%  & $+$22.5\%           & $+$12.0\% \\
+Setter              & $+$3.0\%  & $+$19.3\% & $+$8.9\%            & $-$5.7\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Memory change from Tcl~8.6.13 to Tcl~9.0}
+\begin{tabular}{llll}
+\toprule
+\textbf{Framework} & \textbf{Memory (8.6)} & \textbf{Memory (9.0)} & \textbf{Change} \\
+\midrule
+VOO       & 58~MB    & 66.5~MB   & $+$14.7\% \\
+VOO C++   & 38~MB    & 40.3~MB   & \textbf{$+$6.1\%} \\
+TclOO     & 257~MB   & 395~MB    & $+$53.7\% \\
+Itcl      & 882~MB   & 1,118~MB  & $+$26.8\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+VOO~C++ is virtually immune to interpreter changes ($+$1.9\% creation, $+$6.1\% memory),
+making it the most stable framework across versions. TclOO's 161.5\% explicit-construction
+regression and 53.7\% memory increase in Tcl~9.0 are by far the largest among all
+frameworks, improving VOO's relative advantage from 4.4$\times$ to 5.9$\times$ in memory
+alone. Both VOO and VOO~C++ show improved getter performance in Tcl~9.0, indicating
+bytecode optimizations benefit simple \texttt{lindex}/pointer-access operations. These
+results validate the ``simplicity through composition'' philosophy: frameworks built from
+native primitives scale better across language versions than those introducing new
+infrastructure.

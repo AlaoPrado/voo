@@ -1,0 +1,347 @@
+\section{C++/Tcl Glue Code Template Framework}
+\label{app:cpp}
+
+Complete source for the three-header template framework described in
+Section~\ref{sec:impl}. Requires C++17 and Tcl~8.6 C~API headers.
+
+\subsection*{D.1 \texttt{tcl/type.h} --- Custom \texttt{Tcl\_ObjType} Registration}
+
+\begin{lstlisting}[language=C++, caption={\texttt{tcl/type.h} --- type registration template}]
+#pragma once
+#include <tcl.h>
+#include <exception>
+#include <string>
+#include <sstream>
+#include <cstring>
+
+namespace tcl {
+
+template <typename T>
+class Type {
+public:
+    static Tcl_ObjType* GetType() {
+        static std::string nameStorage(TypeName());
+        static Tcl_ObjType type = {
+            nameStorage.c_str(),
+            FreeInternalRep,
+            DupInternalRep,
+            UpdateString,
+            SetFromAny
+        };
+        static bool registered = false;
+        if (!registered) { Tcl_RegisterObjType(&type); registered = true; }
+        return &type;
+    }
+
+    static Tcl_Obj* New(T* value) {
+        Tcl_Obj* obj = Tcl_NewObj();
+        if (!obj) throw std::runtime_error("Failed to allocate Tcl object");
+        obj->bytes = NULL;
+        obj->typePtr = GetType();
+        obj->internalRep.otherValuePtr = static_cast<void*>(value);
+        return obj;
+    }
+
+    static void FreeInternalRep(Tcl_Obj* obj) {
+        delete static_cast<T*>(obj->internalRep.otherValuePtr);
+        obj->internalRep.otherValuePtr = nullptr;
+    }
+
+    static void DupInternalRep(Tcl_Obj* src, Tcl_Obj* dup) {
+        dup->internalRep.otherValuePtr =
+            new T(*static_cast<T*>(src->internalRep.otherValuePtr));
+        dup->typePtr = GetType();
+    }
+
+    static void UpdateString(Tcl_Obj* obj) {
+        T* value = static_cast<T*>(obj->internalRep.otherValuePtr);
+        std::string str = ToString(*value);
+        obj->bytes = Tcl_Alloc(str.size() + 1);
+        strcpy(obj->bytes, str.c_str());
+        obj->length = str.size();
+    }
+
+    static int SetFromAny(Tcl_Interp* interp, Tcl_Obj* obj) {
+        try {
+            T value = FromAny(interp, obj);
+            if (obj->typePtr && obj->typePtr->freeIntRepProc)
+                obj->typePtr->freeIntRepProc(obj);
+            obj->internalRep.otherValuePtr = new T(value);
+            obj->typePtr = GetType();
+            Tcl_InvalidateStringRep(obj);
+            return TCL_OK;
+        } catch (const std::exception& e) {
+            if (interp) Tcl_SetObjResult(interp, Tcl_NewStringObj(e.what(), -1));
+            return TCL_ERROR;
+        }
+    }
+
+    static T* GetInternalRep(Tcl_Interp* interp, Tcl_Obj* obj) {
+        if (obj->typePtr != GetType()) {
+            if (SetFromAny(interp, obj) != TCL_OK) {
+                std::ostringstream oss;
+                oss << "Failed to convert to \"" << TypeName() << "\"";
+                throw std::runtime_error(oss.str());
+            }
+        }
+        return static_cast<T*>(obj->internalRep.otherValuePtr);
+    }
+
+    // Default ToString --- throws; specialize to enable `puts $obj`
+    static std::string ToString(const T&) {
+        std::ostringstream oss;
+        oss << "Type \"" << TypeName() << "\" can't be cast to string";
+        throw std::runtime_error(oss.str());
+    }
+
+    // Default FromAny falls back to string conversion
+    static T FromAny(Tcl_Interp*, Tcl_Obj* const obj) {
+        return FromString(Tcl_GetString(obj));
+    }
+
+    static T FromString(const std::string&) {
+        std::ostringstream oss;
+        oss << "Type \"" << TypeName() << "\" can't be cast from string";
+        throw std::runtime_error(oss.str());
+    }
+
+private:
+    static const char* TypeName();  // Must be specialized per type
+};
+
+} // namespace tcl
+\end{lstlisting}
+
+\begin{table}[H]
+\centering
+\caption{Specialization points for \texttt{tcl::Type<T>}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Function} & \textbf{Required} & \textbf{Purpose} \\
+\midrule
+\texttt{TypeName()} & Yes & Unique name for Tcl's type registry \\
+\texttt{ToString(const T\&)} & No & Serializes \texttt{T} for \texttt{puts \$obj} \\
+\texttt{FromAny(interp, obj)} & No & Parses a \texttt{Tcl\_Obj} into \texttt{T} \\
+\texttt{FromString(const string\&)} & No & Fallback used by default \texttt{FromAny} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{D.2 \texttt{tcl/obj\_cast.h} --- Bidirectional Type Casting}
+
+\begin{lstlisting}[language=C++, caption={\texttt{tcl/obj\_cast.h} (excerpt showing key specializations)}]
+#pragma once
+#include <tcl.h>
+#include <string>
+#include <stdexcept>
+#include <type_traits>
+#include "tcl/type.h"
+
+namespace tcl { namespace obj_cast {
+
+    template <typename T>
+    Tcl_Obj* from(const T&) {
+        static_assert(!std::is_same_v<T, T>,
+            "No tcl::obj_cast::from<T> specialization for this type.");
+        return nullptr;
+    }
+
+    template <typename T>
+    T to(Tcl_Interp* interp, Tcl_Obj* const obj) {
+        if constexpr (std::is_pointer_v<T>)
+            return tcl::Type<std::remove_pointer_t<T>>::GetInternalRep(interp, obj);
+        else
+            return *tcl::Type<T>::GetInternalRep(interp, obj);
+    }
+
+    // int
+    template <> inline Tcl_Obj* from<int>(const int& v) { return Tcl_NewIntObj(v); }
+    template <> inline int to<int>(Tcl_Interp* i, Tcl_Obj* const o) {
+        int v; Tcl_GetIntFromObj(i, o, &v); return v; }
+
+    // double
+    template <> inline Tcl_Obj* from<double>(const double& v) { return Tcl_NewDoubleObj(v); }
+    template <> inline double to<double>(Tcl_Interp* i, Tcl_Obj* const o) {
+        double v; Tcl_GetDoubleFromObj(i, o, &v); return v; }
+
+    // std::string
+    template <> inline Tcl_Obj* from<std::string>(const std::string& v) {
+        return Tcl_NewStringObj(v.c_str(), -1); }
+    template <> inline std::string to<std::string>(Tcl_Interp*, Tcl_Obj* const o) {
+        int len; const char* s = Tcl_GetStringFromObj(o, &len);
+        return std::string(s, len); }
+
+    // bool
+    template <> inline Tcl_Obj* from<bool>(const bool& v) { return Tcl_NewBooleanObj(v); }
+    template <> inline bool to<bool>(Tcl_Interp* i, Tcl_Obj* const o) {
+        int v; Tcl_GetBooleanFromObj(i, o, &v); return static_cast<bool>(v); }
+
+    // Tcl_Obj* passthrough
+    template <> inline Tcl_Obj* from<Tcl_Obj*>(Tcl_Obj* const& v) { return v; }
+    template <> inline Tcl_Obj* to<Tcl_Obj*>(Tcl_Interp*, Tcl_Obj* const o) { return o; }
+
+}} // namespace tcl::obj_cast
+\end{lstlisting}
+
+\subsection*{D.3 \texttt{tcl/cpp\_api.h} --- Glue Macros and Template Functions}
+
+\begin{lstlisting}[language=C++, caption={Key macros from \texttt{tcl/cpp\_api.h}}]
+// Constructor: new T(arg1, arg2, ...)
+#define TCLCPPG_CREATE_CMD(interp, cmdName, className, ...) \
+    Tcl_CreateObjCommand(interp, cmdName, \
+        [](ClientData cd, Tcl_Interp *ti, int oc, Tcl_Obj *const ov[]) -> int { \
+            return tcl::cpp_api::create<className, __VA_ARGS__>(cd, ti, oc, ov); \
+        }, NULL, NULL)
+
+// Getter (no extra args): object by value
+#define TCLCPPG_GETTER_CMD_NOARGS(interp, cmdName, className, returnType, methodName) \
+    Tcl_CreateObjCommand(interp, cmdName, \
+        [](ClientData cd, Tcl_Interp *ti, int oc, Tcl_Obj *const ov[]) -> int { \
+            return tcl::cpp_api::getter<className, returnType>( \
+                cd, ti, oc, ov, &className::methodName); \
+        }, NULL, NULL)
+
+// Setter (with extra args): object by variable name
+#define TCLCPPG_SETTER_CMD(interp, cmdName, className, returnType, methodName, ...) \
+    Tcl_CreateObjCommand(interp, cmdName, \
+        [](ClientData cd, Tcl_Interp *ti, int oc, Tcl_Obj *const ov[]) -> int { \
+            return tcl::cpp_api::setter<className, returnType, __VA_ARGS__>( \
+                cd, ti, oc, ov, &className::methodName); \
+        }, NULL, NULL)
+\end{lstlisting}
+
+\begin{table}[H]
+\centering
+\caption{Summary of \texttt{TCLCPPG\_*} macros}
+\begin{tabular}{@{}L{5.8cm}L{3.0cm}L{5.2cm}@{}}
+\toprule
+\textbf{Macro} & \textbf{Tcl convention} & \textbf{C++ side} \\
+\midrule
+\texttt{TCLCPPG\_CREATE\_CMD} & \texttt{name arg1 arg2 ...} & \texttt{new Class(args)} \\
+\texttt{TCLCPPG\_GETTER\_CMD\_NOARGS} & \texttt{name object} & \texttt{const} member, no extra args \\
+\texttt{TCLCPPG\_GETTER\_CMD} & \texttt{name object arg1 ...} & \texttt{const} member with extra args \\
+\texttt{TCLCPPG\_SETTER\_CMD\_NOARGS} & \texttt{name objectVar} & non-\texttt{const} member, no extra args \\
+\texttt{TCLCPPG\_SETTER\_CMD} & \texttt{name objectVar arg1 ...} & non-\texttt{const} member with extra args \\
+\texttt{TCLCPPG\_FREE\_CMD} & \texttt{name arg1 arg2 ...} & free function or static method \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{D.4 Complete Example: \texttt{CppVooPoint} (\texttt{point.cpp})}
+
+\begin{lstlisting}[language=C++, caption={Step 1--2: C++ class and \texttt{tcl::Type} specialization}]
+#include <tcl.h>
+#include <string>
+#include <cmath>
+#include <sstream>
+#include "tcl/cpp_api.h"
+
+class VooPoint {
+    double m_x, m_y;
+    std::string m_name;
+    int m_id;
+    bool m_active;
+public:
+    VooPoint(double x, double y, const std::string& name, int id, bool active)
+        : m_x(x), m_y(y), m_name(name), m_id(id), m_active(active) {}
+    VooPoint() : m_x(0.0), m_y(0.0), m_name("point"), m_id(0), m_active(true) {}
+
+    double             getX()      const { return m_x; }
+    double             getY()      const { return m_y; }
+    const std::string& getName()   const { return m_name; }
+    int                getId()     const { return m_id; }
+    bool               getActive() const { return m_active; }
+    void setX(double v)            { m_x = v; }
+    void setY(double v)            { m_y = v; }
+    void setName(std::string v)    { m_name = std::move(v); }
+    void setId(int v)              { m_id = v; }
+    void setActive(bool v)         { m_active = v; }
+    double distance() const { return std::sqrt(m_x*m_x + m_y*m_y); }
+};
+
+namespace tcl {
+template <> const char* Type<VooPoint>::TypeName() { return "VooPoint"; }
+template <> std::string Type<VooPoint>::ToString(const VooPoint& p) {
+    std::ostringstream oss;
+    oss << p.getX() << " " << p.getY() << " "
+        << p.getName() << " " << p.getId() << " " << p.getActive();
+    return oss.str();
+}
+template <> VooPoint Type<VooPoint>::FromAny(Tcl_Interp* interp, Tcl_Obj* const obj) {
+    int objc; Tcl_Obj** objv;
+    if (Tcl_ListObjGetElements(interp, obj, &objc, &objv) != TCL_OK || objc != 5)
+        throw std::runtime_error("Expected list of 5 elements: x y name id active");
+    return VooPoint(
+        obj_cast::to<double>(interp, objv[0]),
+        obj_cast::to<double>(interp, objv[1]),
+        obj_cast::to<std::string>(interp, objv[2]),
+        obj_cast::to<int>(interp, objv[3]),
+        obj_cast::to<bool>(interp, objv[4]));
+}
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption={Step 3--4: default constructor helper and package initializer}]
+// Zero-argument default constructor
+static int VooPoint_newDefault(ClientData, Tcl_Interp* interp,
+                               int objc, Tcl_Obj* const objv[]) {
+    if (objc != 1) { Tcl_WrongNumArgs(interp, 1, objv, ""); return TCL_ERROR; }
+    try {
+        Tcl_SetObjResult(interp, tcl::Type<VooPoint>::New(new VooPoint()));
+    } catch (const std::exception& e) {
+        Tcl_SetObjResult(interp, Tcl_NewStringObj(e.what(), -1));
+        return TCL_ERROR;
+    }
+    return TCL_OK;
+}
+
+extern "C" { int Point_Init(Tcl_Interp* interp); }
+
+int Point_Init(Tcl_Interp* interp) {
+    Tcl_CreateNamespace(interp, "::CppVooPoint", NULL, NULL);
+
+    // Constructors
+    TCLCPPG_CREATE_CMD(interp, "::CppVooPoint::new",
+                       VooPoint, double, double, std::string, int, bool);
+    Tcl_CreateObjCommand(interp, "::CppVooPoint::new()",
+                         VooPoint_newDefault, NULL, NULL);
+
+    // Getters
+    TCLCPPG_GETTER_CMD_NOARGS(interp, "::CppVooPoint::get.x",     VooPoint, double,             getX);
+    TCLCPPG_GETTER_CMD_NOARGS(interp, "::CppVooPoint::get.y",     VooPoint, double,             getY);
+    TCLCPPG_GETTER_CMD_NOARGS(interp, "::CppVooPoint::get.name",  VooPoint, const std::string&, getName);
+    TCLCPPG_GETTER_CMD_NOARGS(interp, "::CppVooPoint::get.id",    VooPoint, int,                getId);
+    TCLCPPG_GETTER_CMD_NOARGS(interp, "::CppVooPoint::get.active",VooPoint, bool,               getActive);
+    TCLCPPG_GETTER_CMD_NOARGS(interp, "::CppVooPoint::distance",  VooPoint, double,             distance);
+
+    // Setters
+    TCLCPPG_SETTER_CMD(interp, "::CppVooPoint::set.x",     VooPoint, void, setX,     double);
+    TCLCPPG_SETTER_CMD(interp, "::CppVooPoint::set.y",     VooPoint, void, setY,     double);
+    TCLCPPG_SETTER_CMD(interp, "::CppVooPoint::set.name",  VooPoint, void, setName,  std::string);
+    TCLCPPG_SETTER_CMD(interp, "::CppVooPoint::set.id",    VooPoint, void, setId,    int);
+    TCLCPPG_SETTER_CMD(interp, "::CppVooPoint::set.active",VooPoint, void, setActive,bool);
+
+    return Tcl_PkgProvideEx(interp, "VooPointCpp", "1.0.0", NULL);
+}
+\end{lstlisting}
+
+\begin{table}[H]
+\centering
+\caption{Summary of migration steps for VOO C++}
+\begin{tabular}{L{4.0cm}L{2.5cm}L{6.5cm}}
+\toprule
+\textbf{Step} & \textbf{Location} & \textbf{What it does} \\
+\midrule
+C++ class  & \texttt{point.cpp} & Plain C++ --- no Tcl headers required \\
+\texttt{TypeName()} & \texttt{tcl::Type<>} specialization & Registers \texttt{VooPoint} in Tcl's type registry \\
+\texttt{ToString()} & \texttt{tcl::Type<>} specialization & Enables \texttt{puts \$obj} and list/dict storage \\
+\texttt{FromAny()}  & \texttt{tcl::Type<>} specialization & Parses a 5-element Tcl list back into a \texttt{VooPoint} \\
+\texttt{VooPoint\_newDefault} & standalone command & Zero-argument constructor (\texttt{new()}) \\
+\texttt{Point\_Init} & package init entry & Registers all Tcl commands; called by \texttt{load} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The resulting Tcl API is identical to the pure-Tcl VOO declaration --- only the namespace
+prefix (\texttt{CppVooPoint::} vs.\ \texttt{VooPoint::}) differs, so no caller code
+needs to change when migrating from Tcl to C++.

@@ -1,0 +1,15 @@
+\begin{abstract}
+I present \textbf{Vanilla Object Orientation (VOO)}, a framework that composes classes from
+Tcl's native data structures---lists and dictionaries---rather than introducing additional
+framework infrastructure. VOO objects are plain Tcl lists with automatic memory management
+through copy-on-write semantics, eliminating the destructor burden inherent in TclOO and Itcl.
+Benchmarks on Tcl~8.6.13 and Tcl~9.0 show VOO achieves 7--18$\times$ faster object creation
+and 4--6$\times$ superior memory efficiency compared to TclOO\@. A companion C++ migration
+path (\textbf{VOO~C++}) further improves field-access speed (setter 2.3--2.6$\times$ faster)
+and memory (6.8--9.8$\times$ lighter than TclOO), while preserving an identical Tcl call-site
+API\@. Cross-version analysis confirms that VOO's compositional design scales better than
+framework-based approaches as the interpreter evolves.
+\end{abstract}
+
+\noindent\textbf{Keywords:} Tcl, Object Orientation, Value Semantics, Performance,
+Copy-on-Write, Language Design

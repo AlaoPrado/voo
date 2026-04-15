@@ -1,0 +1,28 @@
+\section{Design Philosophy}
+
+VOO's fundamental design decision is that \textbf{objects are values, not references}.
+A VOO object is a plain Tcl list---creating a copy with \texttt{set p2 \$p1} shares the
+reference via copy-on-write, and modifying \texttt{p2} leaves \texttt{p1} unchanged.
+This eliminates destructor management entirely: objects are garbage-collected when their
+reference count reaches zero, preventing the memory leak vulnerabilities inherent in
+manual destruction.
+
+Classes are implemented as standard Tcl namespaces. Field indices are stored as
+namespace variables, and accessors are ordinary procedures. No specialized infrastructure
+is required. VOO constructs OO capabilities from established patterns: lists for object
+storage, dictionaries for map fields, namespaces for encapsulation, procedures for
+methods, \texttt{upvar} for setter-by-reference, and Tcl's COW for automatic memory
+management. This yields seamless integration with existing codebases, predictable
+performance from well-understood primitives, and simplified debugging through direct
+string representation.
+
+Performance advantages follow directly from this simplicity. Getters are a single
+\texttt{lindex} with a precomputed index; setters use \texttt{upvar} and \texttt{lset}
+for in-place modification; objects carry no wrapper overhead. Copy-on-write is delegated
+entirely to Tcl's existing mechanisms.
+
+\begin{lstlisting}[language=Tcl, caption={VOO getter and setter --- the entire runtime implementation}]
+# VOO getter and setter --- the entire runtime implementation
+proc Point::get.x {this} { return [lindex $this 0] }
+proc Point::set.x {thisVar value} { upvar $thisVar this; lset this 0 $value }
+\end{lstlisting}

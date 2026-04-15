@@ -1,0 +1,88 @@
+\section{VOO Framework Design}
+
+\subsection{Type-Aware Fields and Constructors}
+
+VOO provides expressive field declarations with type annotations (\texttt{double\_t},
+\texttt{int\_t}, \texttt{string\_t}, \texttt{bool\_t}, \texttt{list\_t}, \texttt{dict\_t},
+\texttt{obj\_t}) that serve documentation and constructor generation purposes without
+runtime type enforcement. Fields support a \texttt{-static} modifier for class-level
+storage and \texttt{public}/\texttt{private} visibility blocks. Every field has a default
+value. VOO automatically generates three constructor variants: positional (\texttt{new}),
+no-argument (\texttt{new()}), and named-argument (\texttt{new.args}). Custom constructors
+can be declared for specialized initialization logic, and they are ordinary procedures
+returning list values.
+
+\begin{lstlisting}[language=Tcl, caption={VOO class declaration with multiple constructor variants}]
+voo::class Person {
+    public {
+        string_t name "unknown"
+        int_t age 0
+        double_t salary 50000.0
+    }
+
+    method greet {} {
+        return "Hello, I'm [get.name $this]"
+    }
+}
+
+set p1 [Person::new "Alice" 30 75000.0]        ;# Positional
+set p2 [Person::new()]                         ;# Defaults
+set p3 [Person::new.args -name "Bob" -age 35]  ;# Named
+\end{lstlisting}
+
+\subsection{Accessors: Get, Set, Update}
+
+For each field, VOO generates three accessor types. Getters receive the object by value
+and return the field via \texttt{lindex}. Setters receive the variable name and modify
+in-place via \texttt{upvar}/\texttt{lset}, providing copy-on-write safety. Updaters
+temporarily detach a field into a local variable during a user-supplied script, preventing
+COW propagation to the entire object during nested modifications---the
+\texttt{try}/\texttt{finally} construct guarantees field reattachment even on exceptions.
+Static fields use the \texttt{class.get.}/\texttt{class.set.} prefix convention.
+
+\subsection{Methods and Inheritance}
+
+Methods are procedures declared via \texttt{method} with optional modifiers:
+none (\texttt{\$this} by value), \texttt{-static} (no \texttt{this}),
+\texttt{-upvar} (\texttt{this} by reference), \texttt{-update \{fields\}} (fields
+detached during body), and \texttt{-override} (validates parent method exists).
+VOO supports single inheritance through \texttt{-extends}, where child classes inherit
+parent fields with sequential indices and parent accessors are automatically available.
+Parent methods can be imported explicitly via \texttt{importMethods}. Multiple inheritance
+is excluded by design.
+
+\subsection{Virtual Polymorphism}
+
+VOO supports runtime polymorphic dispatch through the \texttt{-virtual} class flag and
+\texttt{-virtual} method flag. A virtual class stores the concrete class namespace name
+at index~0 of every instance---all other field indices shift up by one. This tag is an
+interned \texttt{Tcl\_Obj*} shared by all instances of the same class; copy-on-write
+ensures it is never duplicated on object copy, and its embedding as a literal at
+class-definition time keeps constructor cost identical to non-virtual classes.
+
+\begin{lstlisting}[language=Tcl, caption={Virtual polymorphic dispatch example}]
+voo::class Shape -virtual {
+    method area -virtual {} { return 0.0 }
+}
+voo::class Circle -extends Shape {
+    public { double_t radius 1.0 }
+    method area -override {} {
+        return [expr {3.14159 * [get.radius $this] ** 2}]
+    }
+}
+set s [Circle::new 5.0]
+puts [Shape::area $s] ;# dispatches to Circle::area -> 78.54
+\end{lstlisting}
+
+For each \texttt{-virtual} method, VOO generates a \texttt{base.<name>} proc holding the
+original body for direct parent calls, and makes the method itself a dispatcher that reads
+index~0 and routes to the concrete class, falling back to \texttt{base.<name>} otherwise.
+Child classes inherit virtual status automatically; \texttt{-override} methods are
+auto-promoted to dispatchers, ensuring correct dispatch through deep inheritance chains.
+
+\subsection{Visibility}
+
+Fields and methods in \texttt{private \{ \}} blocks receive a \texttt{my.}~prefix and are
+not exported. This naming-convention approach provides documentation-level protection
+consistent with Tcl's philosophy---Itcl's enforcement mechanisms were bypassable through
+namespace manipulation anyway.

@@ -1,0 +1,33 @@
+\section{Background and Related Work}
+
+\subsection{Tcl's Core Data Model}
+
+Tcl's \texttt{Tcl\_Obj} structure maintains both a string representation and an internal
+representation, with reference counting for automatic memory management and copy-on-write
+(COW) for shared references. Lists and dictionaries are highly optimized built-in types
+that exploit this infrastructure. VOO leverages these existing mechanisms rather than
+reimplementing them.
+
+\subsection{Itcl and TclOO}
+
+Itcl introduced OO to Tcl as a separate system layered atop the language, resulting in
+fundamental incompatibilities: its \texttt{variable} command conflicted with Tcl's
+namespace \texttt{variable}; its access control was bypassable through namespace
+manipulation; class redefinition was blocked, violating Tcl's dynamic nature; and
+multiple incompatible destruction mechanisms existed. These challenges originated from
+designing OO constructs independently of Tcl's philosophical principles.
+
+TclOO (TIP~\#257)~\cite{fellows2006} was a deliberate departure from Itcl, with a new
+\texttt{oo::} namespace, a minimalist core, improved namespace alignment, and unified
+destruction via \texttt{destroy}. However, persistent limitations remain: objects are
+handles requiring explicit destruction, omitted \texttt{destroy} calls cause memory
+leaks, each object maintains a procedure handle with computational and memory overhead,
+and converting lists/dicts to TclOO objects requires API changes.
+
+\subsection{Lessons from Two Decades}
+
+The evolution reveals that philosophical consistency is critical, clean architectural
+breaks can be justified, extensibility enables ecosystem growth, and migration paths
+are essential. VOO applies these lessons by maximizing philosophical alignment,
+providing incremental migration paths, and prioritizing simplicity over comprehensive
+features.

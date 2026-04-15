@@ -1,0 +1,37 @@
+\section{Introduction}
+
+The integration of object orientation into Tcl has spanned more than two decades,
+characterized by ongoing tension between expressive power and philosophical consistency.
+\textbf{Incr Tcl (Itcl)}~\cite{dejong,tclwiki-itcl}, developed in the 1990s, introduced
+traditional OO features but created fundamental semantic conflicts with the core language.
+The community debated standardization through several Tcl Improvement Proposals (TIPs)~%
+\cite{tclwiki-tip257}: TIP~\#6 (rejected---include Itcl in core), TIP~\#50 (bundle Itcl
+without integration), and TIP~\#257 (TclOO in Tcl~8.6). TIP~\#257~\cite{fellows2006},
+led by Donal Fellows, implemented \textbf{TclOO} as a purpose-built OO system for core
+integration. Released with Tcl~8.6 in 2013~\cite{tcl86}, TclOO addressed many
+compatibility challenges while retaining reference semantics that require explicit object
+destruction.
+
+\textbf{Vanilla Object Orientation (VOO)} represents the next stage in this evolution.
+Rather than importing OO paradigms from other languages, VOO composes classes from Tcl's
+established patterns---lists, dictionaries, namespaces, and procedures. The fundamental
+question motivating this work is: \emph{How can object orientation be integrated without
+compromising the characteristics that define Tcl's identity?} This question manifests
+through several tensions: reference vs.\ value semantics, framework infrastructure
+vs.\ compositional patterns, feature completeness vs.\ philosophical alignment, and syntax
+familiarity vs.\ conceptual simplicity. The optimal OO framework for Tcl is one that
+appears as a natural extension---amplifying the language's inherent strengths rather than
+supplanting them.
+
+This paper makes six contributions:
+\begin{enumerate}[leftmargin=*]
+  \item A novel architecture composing classes from native data structures with automatic
+        memory management.
+  \item Type-aware field declarations with zero runtime overhead.
+  \item Comprehensive benchmarking on Tcl~8.6.13 and~9.0 demonstrating 7--18$\times$
+        faster creation and 4--6$\times$ better memory than TclOO, extended to VOO~C++.
+  \item The first cross-version scalability analysis of Tcl OO frameworks.
+  \item A seamless migration path from lists $\to$ VOO objects $\to$ C++.
+  \item Design principles showing that simplicity and performance are complementary
+        objectives.
+\end{enumerate}

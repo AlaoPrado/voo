@@ -1,0 +1,119 @@
+\section{Benchmark Methodology}
+\label{app:benchmark}
+
+This appendix describes the experimental procedures used for the performance evaluation.
+
+\subsection*{Timing Methodology}
+
+All time measurements use Tcl's built-in \texttt{time} command, which executes a script
+for a specified number of iterations and returns the average execution time per iteration
+in microseconds. To ensure fair comparisons, a \texttt{profile} wrapper discards the first
+execution (allowing Tcl's bytecode compiler to optimize the procedure) before measuring:
+
+\begin{lstlisting}[language=Tcl, caption={Timing wrapper discarding the first run}]
+proc profile {body times} {
+    uplevel 1 $body; # discard first run to compile tcl procs
+    uplevel 1 [list time $body $times]
+}
+\end{lstlisting}
+
+Each benchmark invocation runs with 1,000 iterations for object creation, getter, and
+setter tests. Class declaration benchmarks also use 1,000 iterations but measure the time
+to declare complete classes with multiple fields and methods.
+
+\subsection*{Test Classes}
+
+The benchmark suite uses a \texttt{Point} class with five fields of mixed types to
+represent realistic object complexity:
+
+\begin{lstlisting}[language=Tcl, caption={VOO \texttt{Point} implementation}]
+voo::class VooPoint {
+    public {
+        double_t x 0.0
+        double_t y 0.0
+        string_t name "point"
+        int_t id 0
+        bool_t active 1
+    }
+
+    method distance {} {
+        set dx [get.x $this]
+        set dy [get.y $this]
+        return [expr {sqrt($dx * $dx + $dy * $dy)}]
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=Tcl, caption={TclOO \texttt{Point} implementation}]
+oo::class create TclooPoint {
+    variable x 0.0
+    variable y 0.0
+    variable name "point"
+    variable id 0
+    variable active 1
+
+    constructor {x_ y_ name_ id_ active_} {
+        set x $x_; set y $y_; set name $name_; set id $id_; set active $active_
+    }
+
+    method getX {} { return $x }
+    method setX {value} { set x $value }
+    method distance {} { return [expr {sqrt($x * $x + $y * $y)}] }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=Tcl, caption={Itcl \texttt{Point} implementation}]
+itcl::class ItclPoint {
+    public variable x 0.0
+    public variable y 0.0
+    public variable name "point"
+    public variable id 0
+    public variable active 1
+
+    constructor {x_ y_ name_ id_ active_} {
+        set x $x_; set y $y_; set name $name_; set id $id_; set active $active_
+    }
+
+    method getX {} { return $x }
+    method setX {value} { set x $value }
+    method distance {} { return [expr {sqrt($x * $x + $y * $y)}] }
+}
+\end{lstlisting}
+
+The VOO~C++ implementation is loaded from a pre-compiled shared library:
+
+\begin{lstlisting}[language=Tcl, caption={Loading and using the VOO C++ Point class}]
+# VOO C++ --- load compiled shared library built from point.cpp
+load <path/to/libvoopoint_cpp.so> Point
+
+set obj [CppVooPoint::new 1.0 2.0 "test" 1 1]
+set obj [CppVooPoint::new()]                    ;# default constructor
+set x   [CppVooPoint::get.x $obj]              ;# getter --- object by value
+CppVooPoint::set.x obj 3.14                    ;# setter --- variable by name
+\end{lstlisting}
+
+\noindent\textbf{Note on Class Declaration Performance:} VOO~C++ class declarations
+happen entirely at C++ compile time; there is no runtime class registration cost to
+measure. Package loading time (the one-time cost of the \texttt{load} command) is excluded
+from all benchmark comparisons because it is an initialization step analogous to
+\texttt{source}-ing the VOO Tcl framework or loading Itcl.
+
+\subsection*{Memory Measurement}
+
+Memory measurements were performed separately using a dedicated memory benchmark script.
+Each scenario runs in an isolated \texttt{tclsh} process. The process resident set size
+(RES) is recorded via \texttt{htop} after creating 100,000 objects of each class type.
+
+\subsection*{Benchmark Categories}
+
+The benchmark suite measures five distinct performance metrics:
+\begin{enumerate}
+  \item \textbf{Object Creation (Explicit Values):} Instantiate objects with all field
+        values explicitly provided to the constructor.
+  \item \textbf{Object Creation (Default Values):} Instantiate objects using the
+        no-argument constructor with all default field values.
+  \item \textbf{Setter Performance:} Modify a single field value through the setter.
+  \item \textbf{Getter Performance:} Retrieve a single field value through the getter.
+  \item \textbf{Class Declaration Performance:} Declare a complete class with fields and
+        methods (one-time initialization cost).
+\end{enumerate}

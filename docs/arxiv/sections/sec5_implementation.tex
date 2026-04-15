@@ -1,0 +1,37 @@
+\section{Implementation}
+\label{sec:impl}
+
+\subsection{Class Declaration Processing}
+
+When \texttt{voo::class} is evaluated, VOO creates a namespace, parses field and method
+declarations, assigns sequential field indices, and generates all accessors and
+constructors. For inherited classes, parent field indices and defaults are copied first,
+and new fields continue sequentially. According to experiments, declaring 1,000 small classes (5 fields, single method) using VOO costs approximately 300~\textmu s
+versus 50~\textmu s for TclOO---an acceptable one-time cost during application
+initialization, given the substantial runtime benefits.
+
+\subsection{Copy-on-Write Optimization}
+
+VOO's updater pattern avoids COW propagation during nested modifications by temporarily
+extracting the field value into a local variable, setting the field slot to empty
+(detaching it), executing the user's modification script, and reattaching the value in
+a \texttt{finally} block. When the local variable holds the sole reference, modifications
+proceed without copying the parent object.
+
+\subsection{Migration Path to C++}
+
+VOO's architecture enables seamless migration to compiled C++ via a companion
+header-only template framework organized around three responsibilities.
+\texttt{tcl::Type<T>} registers a custom \texttt{Tcl\_ObjType} for any C++ class,
+providing COW semantics and reference counting through standard callbacks; only
+\texttt{TypeName()} must be specialized. \texttt{tcl::obj\_cast} provides bidirectional
+type casting between \texttt{Tcl\_Obj*} and C++ types with built-in specializations for
+fundamental types. \texttt{TCLCPPG\_*} macros generate \texttt{Tcl\_CreateObjCommand}
+registrations with lambda wrappers, argument validation, automatic type conversion, and
+error handling.
+
+The migration follows four steps: define a normal C++ class, specialize
+\texttt{tcl::Type<T>}, register commands using macros, and use from Tcl---with the call
+site identical to the VOO Tcl API\@. Migration requires no changes to caller code; only
+the class declaration is replaced and commands re-registered by the C++ package
+initializer.
