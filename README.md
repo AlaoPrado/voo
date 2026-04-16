@@ -20,7 +20,6 @@ call-site API.
 - [Install](#install)
 - [API](#api)
   - [voo::class](#vooclass)
-  - [voo::isVooClass](#vooisvooclass)
   - [Field Types](#field-types)
   - [public / private](#public--private)
   - [constructor](#constructor)
