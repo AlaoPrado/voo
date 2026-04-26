@@ -30,6 +30,7 @@ call-site API.
   - [Generated Accessors](#generated-accessors)
   - [Generated Constructors](#generated-constructors)
   - [class.defaultObj / class.fields](#classdefaultobj--classfields)
+- [Coding Guidelines](#coding-guidelines)
 - [Benchmarks](#benchmarks)
 - [Tests](#tests)
 - [Migration](#migration)
@@ -262,6 +263,12 @@ private { body }
 ```
 
 Fields and methods declared inside `private` receive a `my.` prefix and are not namespace-exported. Fields and methods inside `public` (the default) are exported normally.
+
+Recommended usage:
+
+- Use `private` fields plus `getter`/`setter` when you want to keep representation details abstract (encapsulation).
+- Use public fields when the class is intentionally struct-like and simplicity is preferred over strict encapsulation.
+- Even with public fields, consider accessor procs for stable call sites when you expect internals to evolve.
 
 ```tcl
 voo::class Account {
@@ -648,6 +655,12 @@ puts [Item::getLabel $it]
 
 > **Note:** The tmp variable is reset to {} to avoid accidental copy-on-write operations.
 
+Recommendation:
+
+- For domain objects and APIs with invariants, keep fields private and expose a controlled public surface through `getter`/`setter`.
+- For simple data-carrier classes (struct-style objects), public fields with auto-generated accessors are usually enough.
+- Use custom-named `getter`/`setter` when names should communicate intent instead of storage details.
+
 ---
 
 ### Generated Accessors
@@ -767,6 +780,52 @@ voo::class ColorPoint -extends Point {
 puts [ColorPoint::class.fields]       ;# x y color
 puts [ColorPoint::class.defaultObj]   ;# 0.0 0.0 red
 ```
+
+---
+
+## Coding Guidelines
+
+Use this section as a practical default style for VOO codebases.
+
+### 1. Model Object Intent First
+
+- Encapsulated object: declare fields in `private` and expose behavior through public methods and explicit `getter`/`setter` APIs.
+- Struct-like object: keep fields public when the type is a simple data carrier and direct access improves clarity.
+
+### 2. Prefer Accessor Calls Over Manual Indexing
+
+- Prefer `get.*`, `set.*`, and `update.*` in normal code.
+- Use `variable <fieldName>` + index-level operations only for advanced internals or performance-focused paths.
+- When mixing field-index variables with similarly named arguments, disambiguate names (for example: `myField` and `myField_`).
+
+### 3. Keep Mutation Explicit
+
+- Use default by-value methods for read-only behavior.
+- Use `-upvar` for in-place object mutation.
+- Use `-update {fields}` when mutating large list/dict fields to leverage copy-on-write-safe detachment.
+
+### 4. Constructor Preferences
+
+- Prefer `new` (positional) or `new()` on hot paths.
+- Use `new.args` for call sites where readability and optional arguments matter more than raw speed.
+- Keep constructor argument order aligned with `class.fields` declaration order.
+
+### 5. Inheritance and Polymorphism
+
+- Use `-override` for child methods that replace parent behavior.
+- Use virtual dispatch only where polymorphism is actually required.
+- In virtual override chains, use `Parent::base.<name>` when you need to incorporate parent behavior explicitly.
+
+### 6. Naming Conventions
+
+- Field names: lowerCamelCase.
+- If a method argument mirrors a field name, use a disambiguated argument such as `<field>_`.
+- Use consistent naming for custom accessors so call sites stay predictable across classes.
+
+### 7. API Stability Strategy
+
+- For reusable libraries, expose intent-oriented methods (or custom-named accessors) rather than leaking storage layout.
+- For internal scripts/prototypes, keep the API minimal and favor readability over abstraction ceremony.
 
 ---
 
