@@ -353,8 +353,10 @@ run_test "manual getter/setter/updater generation" {
     assert_equal [Item::getLabel $it] pen
     Item::setLabel it marker
     assert_equal [Item::getLabel $it] marker
+    set tmp SENTINEL
     Item::updateTags it tmp { lappend tmp stationery }
     assert_equal [Item::get.tags $it] [list blue office stationery]
+    assert_equal $tmp {}
 }
 
 # ----------------------------------------------------------------------------
