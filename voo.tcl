@@ -1,7 +1,7 @@
 # Vanilla Tcl Object Orientation (voo) package
 namespace eval voo {
     # package version
-    variable version 1.0.0
+    variable version 1.0.1
 
     ##\brief Check if a namespace is a valid voo class
     # \param[in] namespaceName the namespace to check
@@ -584,6 +584,7 @@ namespace eval voo {
                     uplevel \$body
                 } finally {
                     lset this $fieldIdx \$temp
+                    set temp {}
                 }
             }
         }]

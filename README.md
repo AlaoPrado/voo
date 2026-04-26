@@ -525,8 +525,12 @@ Item::setLabel it "marker"
 Item::updateTags it tmp {
     lappend tmp stationery
 }
+# After updater returns, tmp is reset to {}.
+puts $tmp   ;# {}
 puts [Item::getLabel $it]
 ```
+
+> **Note:** The tmp variable is reset to {} to avoid accidental copy-on-write operations.
 
 ---
 
