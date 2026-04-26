@@ -36,6 +36,7 @@ call-site API.
 - [Migration](#migration)
 - [Demos](#demos)
 - [Documentation](#documentation)
+- [Contributing](#contributing)
 - [License](#license)
 
 ---
@@ -1007,6 +1008,16 @@ In `docs/arxiv`, you can find the LaTeX source files (`.tex`) used for the
 arXiv white paper publication.
 
 White paper link: https://arxiv.org/abs/2604.10399
+
+---
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+
+- Reporting bugs
+- Proposing improvements
+- Submitting code changes via pull requests
 
 ---
 
