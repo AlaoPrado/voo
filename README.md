@@ -24,6 +24,7 @@ call-site API.
   - [public / private](#public--private)
   - [constructor](#constructor)
   - [method](#method)
+  - [Field Index Variables and Naming](#field-index-variables-and-naming)
   - [importMethods](#importmethods)
   - [getter / setter / updater](#getter--setter--updater)
   - [Generated Accessors](#generated-accessors)
@@ -503,6 +504,65 @@ puts [BufferChild::get.entries $b1] ;# root:one child:one
 ```
 
 > **Note:** Virtual dispatch uses `tailcall` internally, so methods declared with `-upvar` or `-update` execute in the original caller frame while preserving by-reference behavior. This also allows `Parent::base.<name> this ...` calls inside `-update` overrides.
+
+---
+
+### Field Index Variables and Naming
+
+For each non-static field, VOO creates a namespace variable in the class with the same
+name as the field. That variable stores the field index in the object list.
+
+```tcl
+voo::class Example {
+    public {
+        int_t id 0
+        int_t myField 10
+    }
+
+    # Disambiguated argument name (`myField_`) avoids collision with class var `myField`.
+    method setMyFieldByIndex {myField_} -upvar {
+        variable myField
+        lset this $myField $myField_
+    }
+
+    method getMyFieldByIndex {} {
+        variable myField
+        return [lindex $this $myField]
+    }
+}
+
+set obj [Example::new 7 11]
+puts [namespace eval ::Example {set id}]       ;# 0
+puts [namespace eval ::Example {set myField}]  ;# 1
+
+Example::setMyFieldByIndex obj 42
+puts [Example::get.myField $obj]               ;# 42
+```
+
+If you use the same name for both a proc argument and a class namespace variable,
+`variable <name>` will fail:
+
+```tcl
+# Raises: variable "myField" already exists
+method bad {myField} -upvar {
+    variable myField
+    lset this $myField $myField
+}
+```
+
+Suggested naming guidelines for these cases:
+
+| Situation | Suggested pattern | Example |
+|-----------|-------------------|---------|
+| Field declaration | lowerCamelCase | `myField` |
+| Argument that carries a new value for same field | trailing underscore | `myField_` |
+| C++-style alternative for class members | `m_<name>` | `m_myFieldIdx` |
+
+Recommendations:
+
+- Prefer generated accessors (`set.myField`, `get.myField`, `my.set.myField`, `my.get.myField`) for readability in method implementations.
+- Use direct index-based updates only when you explicitly need them.
+- Pick one disambiguation pattern and keep it consistent across classes.
 
 ---
 

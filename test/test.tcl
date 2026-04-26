@@ -392,6 +392,76 @@ run_test "method -virtual with -update can call parent base.<name>" {
     assert_equal [VBaseChild::get.tags $obj] [list root:x child:x]
 }
 
+run_test "field names are namespace variables holding field indexes" {
+    _resetClass FieldIndexDemo
+
+    voo::class FieldIndexDemo {
+        public {
+            int_t first 0
+        }
+        private {
+            string_t hidden secret
+        }
+        public {
+            int_t myField 1
+        }
+    }
+
+    assert_equal [namespace eval ::FieldIndexDemo {set first}] 0
+    assert_equal [namespace eval ::FieldIndexDemo {set hidden}] 1
+    assert_equal [namespace eval ::FieldIndexDemo {set myField}] 2
+    assert_equal [FieldIndexDemo::class.fields] [list first hidden myField]
+}
+
+run_test "method variable disambiguates field index from similarly named args" {
+    _resetClass NameDisambiguation
+
+    voo::class NameDisambiguation {
+        public {
+            int_t id 0
+            int_t myField 10
+        }
+
+        method setMyFieldByIndex {myField_} -upvar {
+            variable myField
+            lset this $myField $myField_
+        }
+
+        method setMyFieldByAccessor {value} -upvar {
+            set.myField this $value
+        }
+    }
+
+    set obj [NameDisambiguation::new 7 11]
+
+    NameDisambiguation::setMyFieldByIndex obj 42
+    assert_equal [NameDisambiguation::get.id $obj] 7
+    assert_equal [NameDisambiguation::get.myField $obj] 42
+
+    NameDisambiguation::setMyFieldByAccessor obj 55
+    assert_equal [NameDisambiguation::get.myField $obj] 55
+}
+
+run_test "argument name collision with field index variable raises error" {
+    _resetClass NameCollision
+
+    voo::class NameCollision {
+        public {
+            int_t myField 0
+        }
+
+        method bad {myField} -upvar {
+            variable myField
+            lset this $myField $myField
+        }
+    }
+
+    set obj [NameCollision::new 1]
+    assert_throws {
+        NameCollision::bad obj 9
+    } {*variable "myField" already exists*}
+}
+
 # ----------------------------------------------------------------------------
 # importMethods API
 # ----------------------------------------------------------------------------
