@@ -661,6 +661,9 @@ namespace eval voo {
                     lset this $fieldIdx {}
                 }]
             }
+            append finalBody {
+                set __voo_update_active__internal 1
+            }
             append finalBody "try \{"
         }
         append finalBody $body
@@ -672,6 +675,9 @@ namespace eval voo {
                 append finalBody [subst -nocommands {
                     lset this $fieldIdx \$$field
                 }]
+            }
+            append finalBody {
+                unset -nocomplain __voo_update_active__internal
             }
             append finalBody "\}"
         }
@@ -697,24 +703,75 @@ namespace eval voo {
             if {![uplevel {info exists __voo_is_virtual_class}]} {
                 error "Method '$name' is declared -virtual but '[uplevel {namespace current}]' is not a virtual class"
             }
-            if {[dict exists $optDict -upvar] || [dict exists $optDict -update] || [dict exists $optDict -static]} {
-                error "Method '$name' cannot combine -virtual with -upvar, -update, or -static"
+            if {[dict exists $optDict -static]} {
+                error "Method '$name' cannot combine -virtual with -static"
             }
-            # Register base.<name> with the original body for direct parent calls from subclasses
-            uplevel [list proc "base.$name" $finalArgList $finalBody]
-            # Build dispatch body: route to concrete class implementation at runtime
-            set dispatchBody "set __voo_cls \[lindex \$this 0\]\n"
+            # Register base.<name> with the original body for direct parent calls from subclasses.
+            # For -update methods, make base.<name> borrow parent detached field locals when called
+            # from inside another -update frame (e.g., Child::method -> Parent::base.method).
+            set baseBody $finalBody
+            if {[dict exists $optDict -update]} {
+                set baseBody {}
+                append baseBody {
+                    upvar $thisVar this
+                }
+                set updateFieldNum 0
+                foreach field $updateFields {
+                    set fieldIdx [uplevel [list set $field]]
+                    append baseBody [subst -nocommands {
+                        set __voo_borrow__$updateFieldNum 0
+                        if {[uplevel 1 {info exists __voo_update_active__internal}] && [uplevel 1 [list info exists $field]]} {
+                            set __voo_borrow__$updateFieldNum 1
+                            upvar 1 $field $field
+                        } else {
+                            set $field [lindex \$this $fieldIdx]
+                            lset this $fieldIdx {}
+                        }
+                    }]
+                    incr updateFieldNum
+                }
+                append baseBody {
+                    set __voo_update_active__internal 1
+                }
+                append baseBody "try \{"
+                append baseBody $body
+                append baseBody "\} finally \{"
+                set updateFieldNum 0
+                foreach field $updateFields {
+                    set fieldIdx [uplevel [list set $field]]
+                    append baseBody [subst -nocommands {
+                        if {![set __voo_borrow__$updateFieldNum]} {
+                            lset this $fieldIdx \$$field
+                        }
+                    }]
+                    incr updateFieldNum
+                }
+                append baseBody {
+                    unset -nocomplain __voo_update_active__internal
+                }
+                append baseBody "\}"
+            }
+            uplevel [list proc "base.$name" $finalArgList $baseBody]
+            # Build dispatch body: route to concrete class implementation at runtime.
+            # Use tailcall so -upvar methods bind to the caller frame (not this dispatcher frame).
+            if {[dict exists $optDict -upvar]} {
+                set dispatchBody "upvar \$thisVar this\n"
+                set thisDispatchArg "\$thisVar"
+            } else {
+                set dispatchBody {}
+                set thisDispatchArg "\$this"
+            }
+            append dispatchBody "set __voo_cls \[lindex \$this 0\]\n"
             append dispatchBody "if \{\$__voo_cls ne \[namespace current\] && \[info commands \${__voo_cls}::$name\] ne {}\} \{\n"
-            append dispatchBody "    return \[\${__voo_cls}::$name \$this"
+            append dispatchBody "    tailcall \${__voo_cls}::$name $thisDispatchArg"
             foreach arg $argList {
                 append dispatchBody " \$$arg"
             }
-            append dispatchBody "\]\n\}\n"
-            append dispatchBody "return \[base.$name \$this"
+            append dispatchBody "\n\}\n"
+            append dispatchBody "tailcall base.$name $thisDispatchArg"
             foreach arg $argList {
                 append dispatchBody " \$$arg"
             }
-            append dispatchBody "\]"
             set finalBody $dispatchBody
         }
 
