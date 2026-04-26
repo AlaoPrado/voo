@@ -31,6 +31,8 @@ call-site API.
   - [class.defaultObj / class.fields](#classdefaultobj--classfields)
 - [Benchmarks](#benchmarks)
 - [Tests](#tests)
+- [Migration](#migration)
+- [Demos](#demos)
 - [Documentation](#documentation)
 - [License](#license)
 
@@ -852,6 +854,29 @@ tclsh test/test.tcl
 
 The script validates expected behavior for constructors, methods, inheritance,
 virtual dispatch, accessors, and error scenarios documented in this README.
+
+---
+
+## Migration
+
+Migration guidelines for TclOO and Itcl users are documented in [MIGRATION.md](MIGRATION.md).
+
+It includes:
+- A quick reference mapping table (TclOO/Itcl to VOO)
+- Code examples for class, inheritance, and method migration
+- cget/configure migration patterns to `get.*`, `set.*`, and `new.args`
+
+---
+
+## Demos
+
+Framework equivalence examples are available in [demo/](demo/).
+
+Run the cross-framework demo:
+
+```sh
+tclsh demo/framework_equivalence.tcl
+```
 
 ---
 
