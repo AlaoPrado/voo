@@ -123,7 +123,7 @@ Class::class.set.staticField value                     ;# Static setter
 | `-upvar`              | `this` passed by reference                         |
 | `-update {fields}`    | Named fields detached during body (COW-safe)       |
 | `-override`           | Validates parent method exists                     |
-| `-virtual`            | Enables polymorphic dispatch                       |
+| `-virtual`            | Enables polymorphic dispatch (supports `-upvar`)   |
 
 ### Inheritance
 
@@ -446,7 +446,31 @@ voo::class ColoredCircle -extends Circle {
 
 set s [ColoredCircle::new 5.0 "blue"]
 puts [Shape::area $s]   ;# dynamic dispatch => ColoredCircle::area
+
+# Virtual + upvar (by-reference dispatch)
+voo::class CounterRoot -virtual {
+    public { int_t n 0 }
+    method bump {delta} -virtual -upvar {
+        set.n this [expr {[get.n $this] + $delta}]
+    }
+}
+
+voo::class CounterChild -extends CounterRoot {
+    method bump {delta} -override -upvar {
+        set.n this [expr {[get.n $this] + ($delta * 2)}]
+    }
+}
+
+set c0 [CounterRoot::new 10]
+CounterRoot::bump c0 3
+puts [CounterRoot::get.n $c0] ;# 13
+
+set c1 [CounterChild::new 10]
+CounterRoot::bump c1 3
+puts [CounterChild::get.n $c1] ;# 16 (virtual dispatch to child by reference)
 ```
+
+> **Note:** Virtual dispatch uses `tailcall` internally, so methods declared with `-upvar` bind `thisVar` in the original caller frame.
 
 ---
 

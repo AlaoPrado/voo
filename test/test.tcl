@@ -300,6 +300,34 @@ run_test "method -override and base.<name> polymorphism" {
     assert_almost_equal [Shape2::area $s] [expr {3.14159 * 25 * 1.1}] 1e-5
 }
 
+run_test "method -virtual with -upvar dispatches by reference" {
+    _resetClass VRoot
+    _resetClass VChild
+
+    voo::class VRoot -virtual {
+        public { int_t n 0 }
+        method bump {delta} -virtual -upvar {
+            set.n this [expr {[get.n $this] + $delta}]
+        }
+    }
+
+    voo::class VChild -extends VRoot {
+        method bump {delta} -override -upvar {
+            set.n this [expr {[get.n $this] + ($delta * 2)}]
+        }
+    }
+
+    # Base implementation path (dispatch to base.bump) keeps by-reference semantics.
+    set rootObj [VRoot::new 10]
+    VRoot::bump rootObj 3
+    assert_equal [VRoot::get.n $rootObj] 13
+
+    # Child implementation path (dispatch to child method) keeps by-reference semantics.
+    set childObj [VChild::new 10]
+    VRoot::bump childObj 3
+    assert_equal [VChild::get.n $childObj] 16
+}
+
 # ----------------------------------------------------------------------------
 # importMethods API
 # ----------------------------------------------------------------------------

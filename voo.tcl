@@ -697,24 +697,31 @@ namespace eval voo {
             if {![uplevel {info exists __voo_is_virtual_class}]} {
                 error "Method '$name' is declared -virtual but '[uplevel {namespace current}]' is not a virtual class"
             }
-            if {[dict exists $optDict -upvar] || [dict exists $optDict -update] || [dict exists $optDict -static]} {
-                error "Method '$name' cannot combine -virtual with -upvar, -update, or -static"
+            if {[dict exists $optDict -update] || [dict exists $optDict -static]} {
+                error "Method '$name' cannot combine -virtual with -update or -static"
             }
             # Register base.<name> with the original body for direct parent calls from subclasses
             uplevel [list proc "base.$name" $finalArgList $finalBody]
-            # Build dispatch body: route to concrete class implementation at runtime
-            set dispatchBody "set __voo_cls \[lindex \$this 0\]\n"
+            # Build dispatch body: route to concrete class implementation at runtime.
+            # Use tailcall so -upvar methods bind to the caller frame (not this dispatcher frame).
+            if {[dict exists $optDict -upvar]} {
+                set dispatchBody "upvar \$thisVar this\n"
+                set thisDispatchArg "\$thisVar"
+            } else {
+                set dispatchBody {}
+                set thisDispatchArg "\$this"
+            }
+            append dispatchBody "set __voo_cls \[lindex \$this 0\]\n"
             append dispatchBody "if \{\$__voo_cls ne \[namespace current\] && \[info commands \${__voo_cls}::$name\] ne {}\} \{\n"
-            append dispatchBody "    return \[\${__voo_cls}::$name \$this"
+            append dispatchBody "    tailcall \${__voo_cls}::$name $thisDispatchArg"
             foreach arg $argList {
                 append dispatchBody " \$$arg"
             }
-            append dispatchBody "\]\n\}\n"
-            append dispatchBody "return \[base.$name \$this"
+            append dispatchBody "\n\}\n"
+            append dispatchBody "tailcall base.$name $thisDispatchArg"
             foreach arg $argList {
                 append dispatchBody " \$$arg"
             }
-            append dispatchBody "\]"
             set finalBody $dispatchBody
         }
 
