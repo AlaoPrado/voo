@@ -123,7 +123,7 @@ Class::class.set.staticField value                     ;# Static setter
 | `-upvar`              | `this` passed by reference                         |
 | `-update {fields}`    | Named fields detached during body (COW-safe)       |
 | `-override`           | Validates parent method exists                     |
-| `-virtual`            | Enables polymorphic dispatch (supports `-upvar`)   |
+| `-virtual`            | Enables polymorphic dispatch (supports `-upvar` and `-update`) |
 
 ### Inheritance
 
@@ -468,9 +468,39 @@ puts [CounterRoot::get.n $c0] ;# 13
 set c1 [CounterChild::new 10]
 CounterRoot::bump c1 3
 puts [CounterChild::get.n $c1] ;# 16 (virtual dispatch to child by reference)
+
+# Virtual + update (COW-safe dispatch)
+voo::class BufferRoot -virtual {
+    public {
+        int_t writes 0
+        list_t entries [list]
+    }
+    method appendEntry {value} -virtual -update {writes entries} {
+        incr writes
+        lappend entries "root:$value"
+    }
+}
+
+voo::class BufferChild -extends BufferRoot {
+    method appendEntry {value} -override -update {writes entries} {
+        BufferRoot::base.appendEntry this $value
+        incr writes 2
+        lappend entries "child:$value"
+    }
+}
+
+set b0 [BufferRoot::new 0 [list]]
+BufferRoot::appendEntry b0 one
+puts [BufferRoot::get.writes $b0]   ;# 1
+puts [BufferRoot::get.entries $b0]  ;# root:one
+
+set b1 [BufferChild::new 0 [list]]
+BufferRoot::appendEntry b1 one
+puts [BufferChild::get.writes $b1]  ;# 3
+puts [BufferChild::get.entries $b1] ;# root:one child:one
 ```
 
-> **Note:** Virtual dispatch uses `tailcall` internally, so methods declared with `-upvar` bind `thisVar` in the original caller frame.
+> **Note:** Virtual dispatch uses `tailcall` internally, so methods declared with `-upvar` or `-update` execute in the original caller frame while preserving by-reference behavior. This also allows `Parent::base.<name> this ...` calls inside `-update` overrides.
 
 ---
 

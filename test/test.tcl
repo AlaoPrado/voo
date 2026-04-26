@@ -328,6 +328,70 @@ run_test "method -virtual with -upvar dispatches by reference" {
     assert_equal [VChild::get.n $childObj] 16
 }
 
+run_test "method -virtual with -update dispatches and updates fields" {
+    _resetClass VUpdateRoot
+    _resetClass VUpdateChild
+
+    voo::class VUpdateRoot -virtual {
+        public {
+            int_t n 0
+            list_t tags [list]
+        }
+        method mutate {delta tag} -virtual -update {n tags} {
+            incr n $delta
+            lappend tags "root:$tag"
+        }
+    }
+
+    voo::class VUpdateChild -extends VUpdateRoot {
+        method mutate {delta tag} -override -update {n tags} {
+            incr n [expr {$delta * 2}]
+            lappend tags "child:$tag"
+        }
+    }
+
+    # Base implementation path keeps -update semantics.
+    set rootObj [VUpdateRoot::new 10 [list]]
+    VUpdateRoot::mutate rootObj 3 a
+    assert_equal [VUpdateRoot::get.n $rootObj] 13
+    assert_equal [VUpdateRoot::get.tags $rootObj] [list root:a]
+
+    # Child implementation path keeps -update semantics via virtual dispatch.
+    set childObj [VUpdateChild::new 10 [list]]
+    VUpdateRoot::mutate childObj 3 b
+    assert_equal [VUpdateChild::get.n $childObj] 16
+    assert_equal [VUpdateChild::get.tags $childObj] [list child:b]
+}
+
+run_test "method -virtual with -update can call parent base.<name>" {
+    _resetClass VBaseRoot
+    _resetClass VBaseChild
+
+    voo::class VBaseRoot -virtual {
+        public {
+            int_t n 0
+            list_t tags [list]
+        }
+        method mutate {delta tag} -virtual -update {n tags} {
+            incr n $delta
+            lappend tags "root:$tag"
+        }
+    }
+
+    voo::class VBaseChild -extends VBaseRoot {
+        method mutate {delta tag} -override -update {n tags} {
+            VBaseRoot::base.mutate this $delta $tag
+            incr n 100
+            lappend tags "child:$tag"
+        }
+    }
+
+    set obj [VBaseChild::new 1 [list]]
+    VBaseRoot::mutate obj 2 x
+    assert_equal [VBaseChild::get.n $obj] 103
+    assert_equal [VBaseChild::get.tags $obj] [list root:x child:x]
+}
+
 # ----------------------------------------------------------------------------
 # importMethods API
 # ----------------------------------------------------------------------------
