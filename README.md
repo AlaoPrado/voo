@@ -90,7 +90,7 @@ voo::class ClassName ?-virtual? ?-extends ParentClass? {
 
 ### Field Types
 
-| Type        | Description     | Default | Example                          |
+| ObjType        | Description     | Default | Example                          |
 |-------------|-----------------|---------|----------------------------------|
 | `double_t`  | Floating-point  | `0.0`   | `double_t x 0.0`                |
 | `int_t`     | Integer         | `0`     | `int_t count 0`                 |
@@ -904,9 +904,16 @@ Class Declaration              |          392.671 |           35.312 |          
 
 **With C++ framework (requires prebuilt library):**
 
-```sh
-tclsh benchmark/oo_time_benchmark.tcl --frameworks "voo cpp" --cpp-lib path/to/library.so
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ```
+
+```sh
+tclsh benchmark/oo_time_benchmark.tcl --frameworks "voo tcloo itcl cpp" --cpp-lib ./build/benchmark/voopoint_pkg.so
+```
+
+> NOTE: On macOS/Windows, replace `.so` with your platform module suffix (`.dylib`/`.dll`).
 
 **Custom iterations:**
 
@@ -945,8 +952,10 @@ tclsh benchmark/oo_memory_benchmark.tcl --framework itcl
 **With C++ framework:**
 
 ```sh
-tclsh benchmark/oo_memory_benchmark.tcl --framework cpp --cpp-lib path/to/library.so
+tclsh benchmark/oo_memory_benchmark.tcl --framework cpp --cpp-lib ./build/benchmark/voopoint_pkg.so
 ```
+
+> NOTE: On macOS/Windows, replace `.so` with your platform module suffix (`.dylib`/`.dll`).
 
 **Custom object count:**
 

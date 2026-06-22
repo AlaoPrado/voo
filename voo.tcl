@@ -229,6 +229,7 @@ namespace eval voo {
                     uplevel \$body
                 } finally {
                     set $fieldName "\$temp"
+                    set temp {}
                 }
             }]]
         } else {
