@@ -1,0 +1,3 @@
+[submodule "tclxx"]
+	path = tclxx
+	url = git@github.com:aaraujo-main/tclxx.git
