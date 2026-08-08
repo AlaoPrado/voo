@@ -48,7 +48,7 @@ namespace eval voo {
             uplevel [list namespace delete $className]
         }
 
-        set vooNs [namespace current]
+        set vooNs [list [namespace current]];# extra list-quoted for subst
         # create the namespace for the class
         uplevel [list namespace eval $className [subst -nocommands {
             namespace path [list $vooNs]
@@ -105,9 +105,10 @@ namespace eval voo {
             set parentClassName [uplevel [list namespace eval $parentClassName {
                 namespace current
             }]]
+            set lParentClassName [list $parentClassName]; # extra list-quoted for "subst"
 
             uplevel [list namespace eval $className [subst -nocommands {
-                variable __parentClassNamespace $parentClassName
+                variable __parentClassNamespace $lParentClassName
             }]]
 
             # import parent's default object values
@@ -134,9 +135,9 @@ namespace eval voo {
 
             # import parent's acessors in child class with namespace import
             uplevel [list namespace eval $className [subst -nocommands {
-                namespace import ${parentClassName}::get.*
-                namespace import ${parentClassName}::set.*
-                namespace import ${parentClassName}::update.*
+                namespace import [string cat $lParentClassName ::get.*]
+                namespace import [string cat $lParentClassName ::set.*]
+                namespace import [string cat $lParentClassName ::update.*]
             }]]
         }
 
@@ -208,27 +209,29 @@ namespace eval voo {
         set setterName "${prefix}set.$fieldName"
         set updaterName "${prefix}update.$fieldName"
 
+        set lFieldName [list $fieldName];# extra list-quoted for subst
+
         if {$isStatic} {
             uplevel 2 [list proc $getterName {} [subst -nocommands {
-                variable $fieldName
-                return $$fieldName
+                variable $lFieldName
+                return [set $lFieldName]
             }]]
 
             uplevel 2 [list proc $setterName {value} [subst -nocommands {
-                variable $fieldName
-                set $fieldName "\$value"
+                variable $lFieldName
+                set $lFieldName "\$value"
             }]]
 
             uplevel 2 [list proc $updaterName {tempVar body} [subst -nocommands {
-                variable $fieldName
+                variable $lFieldName
                 upvar "\$tempVar" temp
-                set temp $$fieldName
+                set temp [set $lFieldName]
                 # break link with class variable to avoid copy-on-write
-                set $fieldName {}
+                set $lFieldName {}
                 try {
                     uplevel \$body
                 } finally {
-                    set $fieldName "\$temp"
+                    set $lFieldName "\$temp"
                     set temp {}
                 }
             }]]
@@ -460,16 +463,19 @@ namespace eval voo {
         set spacedArgVarListStr {}
         foreach arg $argList {
             append spacedArgVarListStr "\$$arg "
+            ###  TODO: \$$arg hardening...
         }
         if {$isVirtual} {
             # Read the normalized class namespace at definition time so subst embeds it
             # as a literal in the generated body - no runtime variable lookup required.
             set classNs [uplevel 2 {set __voo_class_namespace}]
-            set spacedArgVarListStr "{$classNs} $spacedArgVarListStr"
+            set spacedArgVarListStr [list "{$classNs} $spacedArgVarListStr"];# extra list-quoted for subst
+            ###  TODO: {$classNs} hardening...
             set body [subst -nocommands {
                 return [list $spacedArgVarListStr]
             }]
         } else {
+            set spacedArgVarListStr [list $spacedArgVarListStr];# extra list-quoted for subst
             set body [subst -nocommands {
                 return [list $spacedArgVarListStr]
             }]
@@ -542,7 +548,7 @@ namespace eval voo {
     # \param[in] fieldName name of the field to read
     proc getter {methodName fieldName} {
         # implementation of getter definition
-        set fieldIdx [uplevel [list set $fieldName]]
+        set fieldIdx [list [uplevel [list set $fieldName]]];# extra list-quoted for subst
         uplevel [subst -nocommands {
             ##\\brief Getter for $fieldName
             # \\param\[in\] this class instance
@@ -559,7 +565,7 @@ namespace eval voo {
     # \param[in] fieldName name of the field to write
     proc setter {methodName fieldName} {
         # implementation of setter definition
-        set fieldIdx [uplevel [list set $fieldName]]
+        set fieldIdx [list [uplevel [list set $fieldName]]];# extra list-quoted for subst
         uplevel [subst -nocommands {
             ##\\brief Setter for $fieldName
             # \\param\[in\] thisVar name of variable containing class instance
@@ -578,7 +584,7 @@ namespace eval voo {
     # \note The updater detaches the field to avoid unnecessary copying during updates
     proc updater {methodName fieldName} {
         # implementation of updater definition
-        set fieldIdx [uplevel [list set $fieldName]]
+        set fieldIdx [list [uplevel [list set $fieldName]]];# extra list-quoted for subst
         uplevel [subst -nocommands {
             ##\\brief Update $fieldName by reference
             # \\param\[in\] thisVar name of variable containing class instance
@@ -664,7 +670,7 @@ namespace eval voo {
             }
             foreach field $updateFields {
                 try {
-                  set fieldIdx [uplevel [list set $field]]
+                  set fieldIdx [list [uplevel [list set $field]]];# extra list-quoted for subst
                 } trap {} {} {
                     error "Field '$field' specified in -update option does not exist in class '$className'"
                 }
@@ -683,9 +689,10 @@ namespace eval voo {
         if {[dict exists $optDict -update]} {
             append finalBody "\} finally \{"
             foreach field $updateFields {
-                set fieldIdx [uplevel [list set $field]]
+                set fieldIdx [list [uplevel [list set $field]]];# extra list-quoted for subst
+                set lField [list $field];# extra list-quoted for subst
                 append finalBody [subst -nocommands {
-                    lset this $fieldIdx \$$field
+                    lset this $fieldIdx [set $lField]
                 }]
             }
             append finalBody {
@@ -729,14 +736,15 @@ namespace eval voo {
                 }
                 set updateFieldNum 0
                 foreach field $updateFields {
-                    set fieldIdx [uplevel [list set $field]]
+                    set fieldIdx [list [uplevel [list set $field]]];# extra list-quoted for subst
+                    set lField [list $field];# extra list-quoted for subst
                     append baseBody [subst -nocommands {
                         set __voo_borrow__$updateFieldNum 0
-                        if {[uplevel 1 {info exists __voo_update_active__internal}] && [uplevel 1 [list info exists $field]]} {
+                        if {[uplevel 1 {info exists __voo_update_active__internal}] && [uplevel 1 [list info exists $lField]]} {
                             set __voo_borrow__$updateFieldNum 1
-                            upvar 1 $field $field
+                            upvar 1 $lField $lField
                         } else {
-                            set $field [lindex \$this $fieldIdx]
+                            set $lField [lindex \$this $fieldIdx]
                             lset this $fieldIdx {}
                         }
                     }]
@@ -750,10 +758,11 @@ namespace eval voo {
                 append baseBody "\} finally \{"
                 set updateFieldNum 0
                 foreach field $updateFields {
-                    set fieldIdx [uplevel [list set $field]]
+                    set fieldIdx [list [uplevel [list set $field]]];# extra list-quoted for subst
+                    set lField [list $field];# extra list-quoted for subst
                     append baseBody [subst -nocommands {
                         if {![set __voo_borrow__$updateFieldNum]} {
-                            lset this $fieldIdx \$$field
+                            lset this $fieldIdx [set $lField]
                         }
                     }]
                     incr updateFieldNum
